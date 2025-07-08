@@ -8,9 +8,8 @@ const Receiver = require("./models/receiver");
 app.use(express.json());
 app.use(cors({
      origin: [
-    'http://localhost:3000',                    // For local development
-    'https://your-frontend-name.vercel.app',    // Placeholder - update later
-    'https://blood-donation-frontend.vercel.app' // Example - update later
+    'http://localhost:3000',                                      // for local dev
+    'https://bloodline-project.vercel.app/'
   ],
   credentials: true
 }));
