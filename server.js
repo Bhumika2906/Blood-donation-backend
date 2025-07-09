@@ -7,31 +7,14 @@ const app = express();
 const Receiver = require("./models/receiver");
 
 app.use(express.json());
-app.use(cors({
- origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'https://bloodline-project.vercel.app'
-    ];
-    
-    // Check if origin is in allowed list or is a Vercel preview deployment
-    if (allowedOrigins.includes(origin) || origin.includes('bloodline-project') && origin.includes('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
- },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
-}));
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://bloodline-project.vercel.app'
+];
 
-// Handle preflight requests
-app.options('*', cors());
+app.use(cors({
+  origin: allowedOrigins
+}));
 
 
 mongoose.connect(process.env.MONGODB_URI , {
