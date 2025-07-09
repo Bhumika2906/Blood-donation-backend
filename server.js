@@ -8,12 +8,22 @@ const Receiver = require("./models/receiver");
 
 app.use(express.json());
 app.use(cors({
-  origin: [
-    'http://localhost:3000',                                      // for local dev
-    'https://bloodline-project.vercel.app',                     // your main app
-    'https://bloodline-project.vercel.app/',                    // with trailing slash
-    /^https:\/\/bloodline-project.*\.vercel\.app$/              // for preview deployments
-  ],
+ origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://bloodline-project.vercel.app'
+    ];
+    
+    // Check if origin is in allowed list or is a Vercel preview deployment
+    if (allowedOrigins.includes(origin) || origin.includes('bloodline-project') && origin.includes('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+ },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
