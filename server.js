@@ -9,12 +9,12 @@ app.use(express.json());
 app.use(cors({
      origin: [
     'http://localhost:3000',                                      // for local dev
-    'https://bloodline-project.vercel.app/'
+    'https://bloodline-project.vercel.app'
   ],
   credentials: true
 }));
 
-mongoose.connect('mongodb+srv://bhumikabhardwaj2906:9knrEi4lr6852JEl@blooddonation.wy15yyi.mongodb.net/?retryWrites=true&w=majority&appName=BloodDonation')
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => {
     console.log('Connected to MongoDB successfully!')
 })
