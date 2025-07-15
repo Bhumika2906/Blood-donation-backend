@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const Donor = require("./models/donor");
 const app = express();
 const Receiver = require("./models/receiver");
+const axios = require('axios');
 
 app.use(express.json());
 const allowedOrigins = [
@@ -18,8 +19,8 @@ app.use(cors({
 
 
 mongoose.connect(process.env.MONGODB_URI , {
-    useNewUrlParser: true,
-  useUnifiedTopology: true
+//     useNewUrlParser: true,
+//   useUnifiedTopology: true
 })
 .then(() => {
     console.log('Connected to MongoDB successfully!')
@@ -165,6 +166,102 @@ app.get('/stats/receivers', async(req,res) => {
         res.status(500).json({ message:'Failed to get receiver stats'});
     }
 });
+
+//hospital
+
+const LOCATIONIQ_API_KEY = process.env.LOCATIONIQ_API_KEY;
+
+
+//GET 
+app.get('/search', async(req,res) => {
+    const{ location } = req.query;
+
+    if(!location) {
+        return res.status(400).json({error : 'Location required'});
+
+    }
+
+    try {
+        //get coordinates
+       const geoUrl = `https://us1.locationiq.com/v1/search.php?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(location)}&format=json&limit=1`;
+
+        const geoResponse = await axios.get(geoUrl);
+
+        if (!geoResponse.data || !geoResponse.data.length ) {
+            return res.status(404).json({error: 'Location not found'});
+        }
+    
+        console.log("locationIQ full response:", geoResponse.data);
+
+    const lat = parseFloat(geoResponse.data[0].lat);
+        const lon = parseFloat(geoResponse.data[0].lon);
+        
+        console.log("Extracted coordinates:", { lat, lon });
+
+    
+        const radius = 5000;
+        const overpassQuery = `[out:json][timeout:25];(node["amenity"="hospital"](around:${radius},${lat},${lon});way["amenity"="hospital"](around:${radius},${lat},${lon});node["healthcare"="blood_donation"](around:${radius},${lat},${lon}););out center;`;
+        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
+    
+        const response = await axios.get(url);
+
+        if (!response.data.elements || response.data.elements.length === 0) {
+            return res.json([]); // Return empty array if no places found
+        }
+
+        const places = response.data.elements.map((element) => {
+            let placeLat, placeLon;
+            
+            // FIXED: Handle different element types from Overpass API
+            if (element.type === 'node') {
+                placeLat = element.lat;
+                placeLon = element.lon;
+            } else if (element.center) {
+                placeLat = element.center.lat;
+                placeLon = element.center.lon;
+            } else {
+                return null; // Skip if no coordinates
+            }
+            
+
+            const tags = element.tags || {}; // FIXED: Overpass uses 'tags' not 'properties'
+
+            return {
+                name: tags.name || 'Unnamed place',
+                description: tags['addr:full'] || 
+                           `${tags['addr:street'] || ''} ${tags['addr:city'] || location}`.trim() || 
+                           'No address available',
+                // FIXED: Determine category from tags
+                category: tags.healthcare === 'blood_donation' ? 'healthcare.blood_donation' : 'healthcare.hospital',
+                
+            };
+        }).filter(place => place !== null); // Remove null entries
+
+
+        const popularHospitals = ['Apollo','Fortis','AIIMS','CityCare','Medanta', 'Max' ,'Artemis', 'Kokilaben']
+       
+        const bloodBanks = places.filter(p => p.category === 'healthcare.blood_donation');
+        
+        const hospitalPopular = places.filter(p =>
+            p.category === 'healthcare.hospital' &&
+            popularHospitals.some(keyword => p.name.toLowerCase().includes(keyword.toLowerCase()))
+        );
+
+        const hospitalOthers = places.filter(p =>
+           p.category === 'healthcare.hospital' &&
+           !popularHospitals.some(keyword => p.name.toLowerCase().includes(keyword.toLowerCase()))
+        );
+
+const sortedPlaces = [...bloodBanks, ...hospitalPopular , ...hospitalOthers];
+
+        res.json(sortedPlaces);
+    } catch (error) {
+        console.error('LocationIQ error:', error.message);
+        res.status(500).json({error:'Failed to fetch nearby places'});
+
+    }
+});
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT , () => {
